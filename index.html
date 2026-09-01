@@ -1,262 +1,879 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="redblue" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSE Portfolio | 3D Interactive</title>
-  <!-- Tailwind CSS CDN -->
+  <title>Magesh — High-Tech CSE Portfolio</title>
+  
+  <!-- Fonts & External Libraries -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Three.js CDN for 3D Background -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <!-- Lucide Icons -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+
   <style>
+    /* ---------- DYNAMIC THEME TOKENS ---------- */
+    :root {
+      --bg: #030712;
+      --line: #1e293b;
+      --c1: #ef4444;          /* Primary Accent (Red) */
+      --c2: #3b82f6;          /* Secondary Accent (Blue) */
+      --c1-a: rgba(239, 68, 68, 0.16);
+      --c2-a: rgba(59, 130, 246, 0.16);
+      --grad: linear-gradient(120deg, var(--c1), var(--c2));
+      --grad-soft: linear-gradient(120deg, var(--c1-a), var(--c2-a));
+      --text: #f3f4f6;
+      --muted: #94a3b8;
+      --faint: #64748b;
+      --panel-solid: rgba(15, 23, 42, 0.75);
+      --shadow-c1: rgba(239, 68, 68, 0.4);
+      --shadow-c2: rgba(59, 130, 246, 0.4);
+    }
+
+    html[data-theme="blackgold"] {
+      --bg: #08080a;
+      --line: #2a2418;
+      --c1: #d4af37;          /* Gold */
+      --c2: #ffdd7a;          /* Soft Yellow */
+      --c1-a: rgba(212, 175, 55, 0.14);
+      --c2-a: rgba(255, 221, 122, 0.10);
+      --text: #f5efe0;
+      --muted: #a8987a;
+      --faint: #5c543f;
+      --panel-solid: rgba(17, 16, 8, 0.85);
+      --shadow-c1: rgba(212, 175, 55, 0.4);
+      --shadow-c2: rgba(255, 221, 122, 0.3);
+    }
+
+    /* ---------- GLOBAL BASE ---------- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background-color: #05070f;
-      color: #e2e8f0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
       overflow-x: hidden;
+      transition: background 0.5s ease, color 0.5s ease;
     }
+    body.loading { overflow: hidden; height: 100vh; }
+
+    ::selection { background: var(--c1); color: #0a0a0a; }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--c1); }
+
+    /* ---------- PRELOADER ---------- */
+    #preloader {
+      position: fixed; inset: 0; z-index: 9999; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+    #preloader.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+    .pl-mark {
+      width: 64px; height: 64px; border-radius: 18px; background: var(--grad);
+      display: flex; align-items: center; justify-content: center; color: #fff;
+      font-family: 'Sora', sans-serif; font-weight: 700; font-size: 22px;
+      animation: plspin 1.4s cubic-bezier(.5,0,.5,1) infinite;
+      box-shadow: 0 20px 50px -14px var(--shadow-c1);
+    }
+    html[data-theme="blackgold"] .pl-mark { color: #0a0a0a; }
+    @keyframes plspin {
+      0% { transform: perspective(400px) rotateY(0deg) rotateX(0deg); }
+      50% { transform: perspective(400px) rotateY(180deg) rotateX(10deg); }
+      100% { transform: perspective(400px) rotateY(360deg) rotateX(0deg); }
+    }
+    .pl-bar { width: 160px; height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+    .pl-bar i { display: block; height: 100%; width: 0%; background: var(--grad); transition: width 0.3s ease; }
+    .pl-txt { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--faint); letter-spacing: .06em; }
+
+    /* ---------- CANVAS BACKGROUND ---------- */
     #canvas-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: -1;
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      z-index: 0; pointer-events: none;
     }
-    .glow-red {
-      box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+
+    /* ---------- CURSOR EFFECTS ---------- */
+    @media (min-width: 901px) and (pointer: fine) {
+      body { cursor: none; }
+      a, button, .ts-btn, .chip, .tilt-card, input, textarea { cursor: none; }
     }
-    .glow-blue {
-      box-shadow: 0 0 25px rgba(59, 130, 246, 0.4);
+    #cDot, #cRing { position: fixed; top: 0; left: 0; z-index: 9998; pointer-events: none; border-radius: 50%; transform: translate(-50%, -50%); }
+    #cDot { width: 6px; height: 6px; background: var(--c1); transition: background 0.5s ease; }
+    #cRing { width: 34px; height: 34px; border: 1.5px solid var(--c2); opacity: 0.6; transition: width .25s ease, height .25s ease, border-color .5s ease, opacity .25s ease; }
+    #cRing.hover { width: 54px; height: 54px; opacity: .9; background: var(--c1-a); }
+    @media (max-width: 900px), (pointer: coarse) { #cDot, #cRing { display: none; } }
+
+    .cursor-glow {
+      position: fixed; z-index: 1; width: 450px; height: 450px; border-radius: 50%;
+      pointer-events: none; opacity: 0.15; filter: blur(70px);
+      background: radial-gradient(circle, var(--c1), var(--c2) 60%, transparent 75%);
+      transform: translate(-50%, -50%); transition: opacity .3s ease;
     }
-    .text-glow-red {
-      text-shadow: 0 0 12px rgba(239, 68, 68, 0.7);
-    }
-    .text-glow-blue {
-      text-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
-    }
+
+    /* ---------- GLASS CARDS & EFFECTS ---------- */
     .glass-card {
-      background: rgba(15, 23, 42, 0.65);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      transition: all 0.3s ease;
+      background: var(--panel-solid);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--line);
+      transition: border-color 0.3s ease, background 0.5s ease;
     }
-    .glass-card:hover {
-      transform: translateY(-6px) scale(1.01);
-      border-color: rgba(59, 130, 246, 0.5);
-      box-shadow: 0 10px 30px -10px rgba(239, 68, 68, 0.3);
-    }
+    .glass-card:hover { border-color: rgba(255, 255, 255, 0.15); }
+
+    .text-glow { text-shadow: 0 0 12px var(--shadow-c1); }
+    .mono { font-family: 'IBM Plex Mono', monospace; }
+    .font-sora { font-family: 'Sora', sans-serif; }
+
+    /* Floating Ambient Background Bulbs */
+    .ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .ambient span { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.25; transition: background 1s ease; }
+    .ambient span:nth-child(1) { width: 500px; height: 500px; background: var(--c1); top: -150px; left: -100px; animation: drift1 22s ease-in-out infinite; }
+    .ambient span:nth-child(2) { width: 450px; height: 450px; background: var(--c2); bottom: -130px; right: -90px; animation: drift2 26s ease-in-out infinite; }
+    @keyframes drift1 { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(60px,40px) scale(1.08);} }
+    @keyframes drift2 { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(-50px,-30px) scale(1.06);} }
+
+    /* Terminal Formatting */
+    .command-line::before { content: "$ "; color: var(--c1); font-weight: bold; }
+    .typewriter-caret { display: inline-block; width: 2px; margin-left: 2px; background: currentColor; animation: caretblink 1s step-end infinite; }
+    @keyframes caretblink { 50% { opacity: 0; } }
+
+    /* Theme Switcher Styling */
+    .ts-btn { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--line); cursor: pointer; transition: transform 0.2s; }
+    .ts-btn.rb { background: linear-gradient(120deg, #ef4444, #3b82f6); }
+    .ts-btn.bg { background: linear-gradient(120deg, #0a0a0a, #d4af37); }
+    .ts-btn.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--text); }
+
+    /* Scroll Animations */
+    .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.7s ease, transform 0.7s ease; }
+    .reveal.in { opacity: 1; transform: translateY(0); }
   </style>
 </head>
-<body class="relative min-h-screen">
+<body class="loading relative selection:bg-red-500 selection:text-white">
 
-  <!-- 3D Background Canvas -->
+  <!-- PRELOADER -->
+  <div id="preloader">
+    <div class="pl-mark">M</div>
+    <div class="pl-bar"><i id="plFill"></i></div>
+    <div class="pl-txt" id="plTxt">INITIALIZING SYSTEM — 0%</div>
+  </div>
+
+  <!-- CURSORS & GLOWS -->
+  <div id="cDot"></div>
+  <div id="cRing"></div>
+  <div class="cursor-glow" id="cursorGlow"></div>
+
+  <!-- AMBIENT CANVAS & EFFECTS -->
+  <div class="ambient"><span></span><span></span></div>
   <div id="canvas-container"></div>
 
-  <!-- Navigation -->
-  <nav class="fixed top-0 left-0 w-full z-50 glass-card px-8 py-4 flex justify-between items-center border-b border-slate-800">
-    <div class="text-2xl font-bold tracking-wider text-white">
-      <span class="text-red-500 text-glow-red">&lt;CSE</span><span class="text-blue-500 text-glow-blue">/Dev&gt;</span>
-    </div>
-    <div class="hidden md:flex space-x-8 font-medium">
-      <a href="#about" class="hover:text-blue-400 transition">About</a>
-      <a href="#skills" class="hover:text-red-400 transition">Skills</a>
-      <a href="#projects" class="hover:text-blue-400 transition">Projects</a>
-      <a href="#contact" class="hover:text-red-400 transition">Contact</a>
+  <!-- NAVBAR -->
+  <nav class="fixed top-0 left-0 w-full z-50 glass-card px-6 py-4 border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <a href="#" class="text-2xl font-black tracking-wider text-white flex items-center gap-1 group font-sora">
+        <span style="color: var(--c1)" class="transition duration-300 group-hover:scale-110">&lt;Magesh</span>
+        <span style="color: var(--c2)" class="transition duration-300 group-hover:scale-110">/CSE&gt;</span>
+      </a>
+      
+      <div class="hidden md:flex items-center space-x-7 font-semibold text-xs tracking-wider uppercase mono">
+        <a href="#about" class="hover:text-white transition">About</a>
+        <a href="#terminal" class="hover:text-white transition">CLI Terminal</a>
+        <a href="#skills" class="hover:text-white transition">Skills</a>
+        <a href="#projects" class="hover:text-white transition">Projects</a>
+        <a href="#stats" class="hover:text-white transition">Stats</a>
+        <a href="#timeline" class="hover:text-white transition">Timeline</a>
+        <a href="#achievements" class="hover:text-white transition">Achievements</a>
+        <a href="#contact" class="hover:text-white transition">Contact</a>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Theme Switcher -->
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-800 glass-card text-xs">
+          <div class="ts-btn rb on" data-theme-btn="redblue" title="Red / Blue Theme"></div>
+          <div class="ts-btn bg" data-theme-btn="blackgold" title="Black / Gold Theme"></div>
+        </div>
+
+        <!-- Audio SFX Toggle -->
+        <button id="sfx-toggle" onclick="toggleSFX()" class="flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-700 bg-slate-900/80 text-xs font-mono text-slate-400 hover:border-red-500 hover:text-red-400 transition">
+          <i data-lucide="volume-x" id="sfx-icon" class="w-3.5 h-3.5"></i>
+          <span id="sfx-status">SFX: OFF</span>
+        </button>
+      </div>
     </div>
   </nav>
 
-  <!-- Hero Section -->
-  <section class="min-h-screen flex flex-col justify-center items-center text-center px-4 pt-20">
-    <div class="p-2 px-4 rounded-full glass-card border border-red-500/30 text-red-400 text-sm font-mono mb-6 animate-pulse">
-      Computer Science & Engineering Student
-    </div>
-    <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-4">
-      Hi, I'm <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-purple-500 to-blue-500 text-glow-red">[Your Name]</span>
-    </h1>
-    <p class="text-xl md:text-2xl text-slate-400 max-w-2xl mb-8 font-light">
-      Building scalable software, exploring algorithms, and crafting high-performance systems.
-    </p>
-    <div class="flex flex-wrap justify-center gap-4">
-      <a href="#projects" class="px-8 py-3 rounded-lg bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold hover:from-red-500 hover:to-red-600 transition glow-red">
-        View Work
-      </a>
-      <a href="#contact" class="px-8 py-3 rounded-lg glass-card border border-blue-500/50 text-blue-400 font-semibold hover:bg-blue-500/10 transition glow-blue">
-        Get In Touch
-      </a>
-    </div>
-  </section>
+  <!-- MAIN CONTAINER -->
+  <main class="relative z-10 max-w-7xl mx-auto px-6 pt-24">
 
-  <!-- Skills Section -->
-  <section id="skills" class="max-w-6xl mx-auto px-6 py-20">
-    <h2 class="text-3xl font-bold text-center mb-12">
-      Technical <span class="text-blue-500 text-glow-blue">Arsenal</span>
-    </h2>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- HERO SECTION -->
+    <section id="about" class="min-h-screen flex flex-col justify-center items-center text-center relative py-12">
+      <div class="p-2 px-5 rounded-full glass-card border text-xs font-mono mb-6 tracking-widest uppercase flex items-center gap-2" style="border-color: var(--c1); color: var(--c1);">
+        <span class="w-2 h-2 rounded-full animate-ping" style="background: var(--c1);"></span>
+        SRM IST · B.Tech CSE 3rd Year · Open to Internships
+      </div>
       
-      <div class="glass-card p-6 rounded-xl border-l-4 border-l-red-500">
-        <div class="flex items-center space-x-3 mb-4">
-          <i data-lucide="code" class="text-red-500"></i>
-          <h3 class="text-xl font-bold">Languages</h3>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">C++</span>
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">Python</span>
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">Java</span>
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">JavaScript</span>
-        </div>
-      </div>
-
-      <div class="glass-card p-6 rounded-xl border-l-4 border-l-blue-500">
-        <div class="flex items-center space-x-3 mb-4">
-          <i data-lucide="cpu" class="text-blue-500"></i>
-          <h3 class="text-xl font-bold">Core CSE</h3>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">DSA</span>
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">DBMS</span>
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">OS</span>
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">Networks</span>
-        </div>
-      </div>
-
-      <div class="glass-card p-6 rounded-xl border-l-4 border-l-purple-500">
-        <div class="flex items-center space-x-3 mb-4">
-          <i data-lucide="layers" class="text-purple-500"></i>
-          <h3 class="text-xl font-bold">Web & Tools</h3>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">React</span>
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">Node.js</span>
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">Git</span>
-          <span class="px-3 py-1 bg-slate-800 text-slate-300 rounded-md text-sm">Docker</span>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- Projects Section -->
-  <section id="projects" class="max-w-6xl mx-auto px-6 py-20">
-    <h2 class="text-3xl font-bold text-center mb-12">
-      Featured <span class="text-red-500 text-glow-red">Projects</span>
-    </h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-6 font-sora">
+        Building high-performance <br>
+        <span class="text-transparent bg-clip-text" style="background-image: var(--grad);">software & distributed systems.</span>
+      </h1>
       
-      <!-- Project 1 -->
-      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl group-hover:bg-red-500/20 transition"></div>
-        <h3 class="text-2xl font-bold text-white mb-2">Project Alpha</h3>
-        <p class="text-slate-400 mb-4">A high-performance algorithm visualizer designed to demonstrate graph traversals and dynamic programming.</p>
-        <div class="flex gap-2 mb-6">
-          <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded">C++</span>
-          <span class="text-xs px-2 py-1 bg-red-500/20 text-red-400 rounded">OpenGL</span>
-        </div>
-        <a href="#" class="inline-flex items-center text-sm font-semibold text-blue-400 hover:text-blue-300">
-          View Code <i data-lucide="arrow-up-right" class="w-4 h-4 ml-1"></i>
+      <p class="text-base md:text-xl max-w-3xl mb-10 font-light leading-relaxed min-h-[60px]" style="color: var(--muted)" id="heroLead">
+        <!-- Typewriter Text Injected Here -->
+      </p>
+
+      <div class="flex flex-wrap justify-center gap-4 mb-12">
+        <a href="#projects" onclick="playBeep()" class="px-7 py-3.5 rounded-xl text-white font-bold tracking-wide transition-all transform hover:-translate-y-1 shadow-lg flex items-center gap-2 text-sm" style="background: var(--grad); box-shadow: 0 10px 25px -10px var(--shadow-c1);">
+          <i data-lucide="code-2" class="w-4 h-4"></i> View Projects
+        </a>
+        <a href="#terminal" onclick="playBeep()" class="px-7 py-3.5 rounded-xl glass-card font-bold tracking-wide hover:bg-white/5 transition-all transform hover:-translate-y-1 flex items-center gap-2 text-sm" style="color: var(--c2); border-color: var(--c2);">
+          <i data-lucide="terminal" class="w-4 h-4"></i> Open Terminal
         </a>
       </div>
 
-      <!-- Project 2 -->
-      <div class="glass-card rounded-2xl p-6 relative overflow-hidden group">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition"></div>
-        <h3 class="text-2xl font-bold text-white mb-2">Neural Net Sandbox</h3>
-        <p class="text-slate-400 mb-4">Interactive browser tool for training basic neural networks with real-time gradient visualization.</p>
-        <div class="flex gap-2 mb-6">
-          <span class="text-xs px-2 py-1 bg-red-500/20 text-red-400 rounded">Python</span>
-          <span class="text-xs px-2 py-1 bg-blue-500/20 text-blue-400 rounded">TensorFlow</span>
+      <!-- Quick Metrics Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
+        <div class="glass-card p-4 rounded-xl text-center">
+          <div class="text-2xl font-bold font-sora" style="color: var(--c1);">8.7 / 10</div>
+          <div class="text-xs font-mono" style="color: var(--muted);">CGPA</div>
         </div>
-        <a href="#" class="inline-flex items-center text-sm font-semibold text-red-400 hover:text-red-300">
-          View Code <i data-lucide="arrow-up-right" class="w-4 h-4 ml-1"></i>
-        </a>
+        <div class="glass-card p-4 rounded-xl text-center">
+          <div class="text-2xl font-bold font-sora" style="color: var(--c2);">420+</div>
+          <div class="text-xs font-mono" style="color: var(--muted);">DSA Problems Solved</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl text-center">
+          <div class="text-2xl font-bold font-sora" style="color: var(--c1);">3</div>
+          <div class="text-xs font-mono" style="color: var(--muted);">Hackathons Won</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl text-center">
+          <div class="text-2xl font-bold font-sora" style="color: var(--c2);">1450+</div>
+          <div class="text-xs font-mono" style="color: var(--muted);">Codeforces Specialist</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TERMINAL SECTION -->
+    <section id="terminal" class="py-16 reveal">
+      <div class="max-w-4xl mx-auto">
+        <div class="glass-card rounded-2xl border overflow-hidden shadow-2xl">
+          <div class="bg-slate-900/90 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+              <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+              <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+              <span class="text-xs font-mono text-slate-400 ml-2">bash - magesh@portfolio:~</span>
+            </div>
+            <span class="text-xs font-mono text-slate-500">Interactive CLI v2.0</span>
+          </div>
+          
+          <div class="p-6 font-mono text-sm min-h-[260px] max-h-[360px] overflow-y-auto space-y-3 bg-slate-950/90" id="terminal-body">
+            <div class="text-slate-400">Welcome! Type <span style="color: var(--c2)" class="font-bold">'help'</span> to view available interactive commands.</div>
+          </div>
+          
+          <div class="bg-slate-900/50 px-6 py-3 border-t border-slate-800 flex items-center gap-2">
+            <span style="color: var(--c1)" class="font-mono font-bold">$</span>
+            <input type="text" id="terminal-input" placeholder="Enter command..." class="bg-transparent text-slate-200 font-mono focus:outline-none w-full text-sm" autocomplete="off">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SKILLS SECTION -->
+    <section id="skills" class="py-20 reveal">
+      <div class="text-center mb-14">
+        <h2 class="text-3xl md:text-4xl font-black mb-3 font-sora">Technical <span style="color: var(--c2)">Arsenal</span></h2>
+        <p class="text-xs font-mono" style="color: var(--muted)">CORE COMPETENCIES & PROFICIENCY</p>
       </div>
 
-    </div>
-  </section>
+      <!-- Skill Bars -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+        <div class="glass-card p-6 rounded-2xl">
+          <h3 class="text-lg font-bold mb-6 font-sora">Languages Proficiency</h3>
+          <div class="space-y-4 font-mono text-xs">
+            <div>
+              <div class="flex justify-between mb-1"><span>C++</span><span>90%</span></div>
+              <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden"><div class="h-full rounded-full transition-all duration-1000" style="width: 90%; background: var(--grad)"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1"><span>Python</span><span>85%</span></div>
+              <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden"><div class="h-full rounded-full transition-all duration-1000" style="width: 85%; background: var(--grad)"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1"><span>Java</span><span>75%</span></div>
+              <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden"><div class="h-full rounded-full transition-all duration-1000" style="width: 75%; background: var(--grad)"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between mb-1"><span>JavaScript</span><span>70%</span></div>
+              <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden"><div class="h-full rounded-full transition-all duration-1000" style="width: 70%; background: var(--grad)"></div></div>
+            </div>
+          </div>
+        </div>
 
-  <!-- 3D Interactive Script -->
+        <div class="glass-card p-6 rounded-2xl flex flex-col justify-between">
+          <div>
+            <h3 class="text-lg font-bold mb-4 font-sora">Frameworks & Tools</h3>
+            <div class="flex flex-wrap gap-2 mb-6">
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">React</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">Node.js</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">Express</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">MongoDB</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">MySQL</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">Docker</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">Git</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">Three.js</span>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-lg font-bold mb-4 font-sora">Core CS Fundamentals</h3>
+            <div class="flex flex-wrap gap-2">
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">Data Structures & Algorithms</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">Operating Systems</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">DBMS</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">Computer Networks</span>
+              <span class="chip px-3 py-1.5 rounded-lg text-xs font-mono border border-slate-700 bg-slate-800/80">OOP</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROJECTS SECTION -->
+    <section id="projects" class="py-20 reveal">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-4xl font-black mb-4 font-sora">Featured <span style="color: var(--c1)">Projects</span></h2>
+        
+        <!-- Filter Controls -->
+        <div class="flex flex-wrap justify-center gap-3 mt-6">
+          <button onclick="filterProjects('all')" class="project-filter-btn px-4 py-2 rounded-lg text-xs font-mono tracking-wider transition" style="background: var(--c1); color: #fff;">ALL</button>
+          <button onclick="filterProjects('web')" class="project-filter-btn px-4 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white text-xs font-mono tracking-wider transition">FULL-STACK & WEB</button>
+          <button onclick="filterProjects('systems')" class="project-filter-btn px-4 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white text-xs font-mono tracking-wider transition">SYSTEMS & CLI</button>
+          <button onclick="filterProjects('ml')" class="project-filter-btn px-4 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white text-xs font-mono tracking-wider transition">AI & ML</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        <!-- Project 1 -->
+        <div class="project-card glass-card rounded-2xl p-7 relative overflow-hidden tilt-card" data-category="web" data-tilt>
+          <span class="text-xs font-mono font-semibold uppercase tracking-widest mb-2 block" style="color: var(--c1)">FULL-STACK</span>
+          <h3 class="text-xl font-bold text-white mb-2 font-sora">CampusConnect</h3>
+          <p class="text-sm mb-6 leading-relaxed" style="color: var(--muted)">Campus event & club management platform with real-time RSVP tracking and role-based dashboards for organizers and students.</p>
+          <div class="flex flex-wrap gap-2 mb-6">
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">React</span>
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">Node.js</span>
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">MongoDB</span>
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">Socket.io</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <a href="https://github.com/magesh/campusconnect" target="_blank" onclick="playBeep()" class="text-xs font-bold flex items-center gap-1 hover:underline" style="color: var(--c2)">
+              GitHub <i data-lucide="github" class="w-3.5 h-3.5"></i>
+            </a>
+            <a href="#" target="_blank" onclick="playBeep()" class="text-xs font-bold flex items-center gap-1 hover:underline" style="color: var(--c1)">
+              Live Demo <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Project 2 -->
+        <div class="project-card glass-card rounded-2xl p-7 relative overflow-hidden tilt-card" data-category="systems" data-tilt>
+          <span class="text-xs font-mono font-semibold uppercase tracking-widest mb-2 block" style="color: var(--c1)">SYSTEMS</span>
+          <h3 class="text-xl font-bold text-white mb-2 font-sora">MiniDB Engine</h3>
+          <p class="text-sm mb-6 leading-relaxed" style="color: var(--muted)">Lightweight key-value store built from scratch in C++ implementing an LSM-tree, WAL for crash recovery, and a simple query layer.</p>
+          <div class="flex flex-wrap gap-2 mb-6">
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">C++</span>
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">Data Structures</span>
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">File I/O</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <a href="https://github.com/magesh/minidb" target="_blank" onclick="playBeep()" class="text-xs font-bold flex items-center gap-1 hover:underline" style="color: var(--c2)">
+              GitHub <i data-lucide="github" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Project 3 -->
+        <div class="project-card glass-card rounded-2xl p-7 relative overflow-hidden tilt-card" data-category="ml" data-tilt>
+          <span class="text-xs font-mono font-semibold uppercase tracking-widest mb-2 block" style="color: var(--c1)">MACHINE LEARNING</span>
+          <h3 class="text-xl font-bold text-white mb-2 font-sora">Resume Screener</h3>
+          <p class="text-sm mb-6 leading-relaxed" style="color: var(--muted)">NLP pipeline that ranks resumes against a job description using TF-IDF and cosine similarity, wrapped in a dynamic web UI.</p>
+          <div class="flex flex-wrap gap-2 mb-6">
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">Python</span>
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">scikit-learn</span>
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">Flask</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <a href="https://github.com/magesh/resume-screener" target="_blank" onclick="playBeep()" class="text-xs font-bold flex items-center gap-1 hover:underline" style="color: var(--c2)">
+              GitHub <i data-lucide="github" class="w-3.5 h-3.5"></i>
+            </a>
+            <a href="#" target="_blank" onclick="playBeep()" class="text-xs font-bold flex items-center gap-1 hover:underline" style="color: var(--c1)">
+              Live Demo <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Project 4 -->
+        <div class="project-card glass-card rounded-2xl p-7 relative overflow-hidden tilt-card" data-category="systems" data-tilt>
+          <span class="text-xs font-mono font-semibold uppercase tracking-widest mb-2 block" style="color: var(--c1)">CLI TOOL</span>
+          <h3 class="text-xl font-bold text-white mb-2 font-sora">gitstat</h3>
+          <p class="text-sm mb-6 leading-relaxed" style="color: var(--muted)">Command-line tool that visualizes commit activity and contributor stats for any local Git repository inside the terminal.</p>
+          <div class="flex flex-wrap gap-2 mb-6">
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">Python</span>
+            <span class="text-xs px-2.5 py-1 bg-slate-800/80 text-slate-300 rounded-md font-mono border border-slate-700">Git Internals</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <a href="https://github.com/magesh/gitstat" target="_blank" onclick="playBeep()" class="text-xs font-bold flex items-center gap-1 hover:underline" style="color: var(--c2)">
+              GitHub <i data-lucide="github" class="w-3.5 h-3.5"></i>
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- CODING STATS SECTION -->
+    <section id="stats" class="py-16 reveal">
+      <div class="glass-card rounded-2xl p-8 border border-slate-800">
+        <div class="text-center mb-8">
+          <h2 class="text-3xl font-bold font-sora">Coding & <span style="color: var(--c1)">Problem Solving</span></h2>
+        </div>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800">
+            <div class="text-3xl font-black mb-1 font-sora" style="color: var(--c1)">420+</div>
+            <div class="text-xs font-mono text-slate-400">LeetCode Solved</div>
+          </div>
+          <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800">
+            <div class="text-3xl font-black mb-1 font-sora" style="color: var(--c2)">1450+</div>
+            <div class="text-xs font-mono text-slate-400">Codeforces Specialist</div>
+          </div>
+          <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800">
+            <div class="text-3xl font-black mb-1 font-sora" style="color: var(--c1)">30+</div>
+            <div class="text-xs font-mono text-slate-400">GitHub Repositories</div>
+          </div>
+          <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800">
+            <div class="text-3xl font-black mb-1 font-sora" style="color: var(--c2)">Top 5%</div>
+            <div class="text-xs font-mono text-slate-400">Global Contest Rank</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABBED TIMELINE SECTION -->
+    <section id="timeline" class="py-16 reveal">
+      <div class="text-center mb-10">
+        <h2 class="text-3xl md:text-4xl font-black mb-3 font-sora">Academic & <span style="color: var(--c2)">Career Journey</span></h2>
+      </div>
+
+      <div class="glass-card rounded-2xl p-8 border border-slate-800 max-w-4xl mx-auto">
+        <div class="flex border-b border-slate-800 mb-8 overflow-x-auto">
+          <button onclick="switchTab('edu')" id="tab-edu" class="px-6 py-3 font-mono text-sm border-b-2 font-bold transition whitespace-nowrap" style="border-color: var(--c1); color: var(--c1)">Education</button>
+          <button onclick="switchTab('exp')" id="tab-exp" class="px-6 py-3 font-mono text-sm border-b-2 border-transparent text-slate-400 hover:text-white transition whitespace-nowrap">Experience & Roles</button>
+          <button onclick="switchTab('cert')" id="tab-cert" class="px-6 py-3 font-mono text-sm border-b-2 border-transparent text-slate-400 hover:text-white transition whitespace-nowrap">Certifications</button>
+        </div>
+
+        <div id="content-edu" class="space-y-6">
+          <div class="border-l-2 pl-4 relative" style="border-color: var(--c1)">
+            <div class="w-3 h-3 rounded-full absolute -left-[7px] top-1" style="background: var(--c1)"></div>
+            <h3 class="text-lg font-bold font-sora">B.Tech in Computer Science & Engineering</h3>
+            <p class="text-xs font-mono text-slate-400">2023 — 2027 | SRM Institute of Science & Technology, Chennai</p>
+            <p class="text-sm text-slate-300 mt-2">CGPA: 8.7 / 10. Coursework: Data Structures & Algorithms, OS, DBMS, Networks, Distributed Systems.</p>
+          </div>
+          <div class="border-l-2 pl-4 relative" style="border-color: var(--c2)">
+            <div class="w-3 h-3 rounded-full absolute -left-[7px] top-1" style="background: var(--c2)"></div>
+            <h3 class="text-lg font-bold font-sora">Higher Secondary (XII) — PCM + CS</h3>
+            <p class="text-xs font-mono text-slate-400">2021 — 2023 | Delhi Public School</p>
+            <p class="text-sm text-slate-300 mt-2">Score: 92.4% · School topper in Computer Science.</p>
+          </div>
+        </div>
+
+        <div id="content-exp" class="space-y-6 hidden">
+          <div class="border-l-2 pl-4 relative" style="border-color: var(--c2)">
+            <div class="w-3 h-3 rounded-full absolute -left-[7px] top-1" style="background: var(--c2)"></div>
+            <h3 class="text-lg font-bold font-sora">Software Engineering / Open-Source Contributor</h3>
+            <p class="text-xs font-mono text-slate-400">Google Summer of Code · 2025</p>
+            <p class="text-sm text-slate-300 mt-2">Contributed core dev-tooling features and optimized backend runtime modules.</p>
+          </div>
+        </div>
+
+        <div id="content-cert" class="space-y-6 hidden">
+          <div class="border-l-2 pl-4 relative" style="border-color: var(--c1)">
+            <div class="w-3 h-3 rounded-full absolute -left-[7px] top-1" style="background: var(--c1)"></div>
+            <h3 class="text-lg font-bold font-sora">AWS Cloud Practitioner Certified</h3>
+            <p class="text-xs font-mono text-slate-400">Amazon Web Services · 2024</p>
+          </div>
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-slate-800 flex justify-end">
+          <a href="#" download onclick="playBeep()" class="px-6 py-3 rounded-xl text-white font-mono text-xs font-bold tracking-wider transition flex items-center gap-2" style="background: var(--grad)">
+            <i data-lucide="download" class="w-4 h-4"></i> DOWNLOAD RESUME (PDF)
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACHIEVEMENTS SECTION -->
+    <section id="achievements" class="py-16 reveal max-w-4xl mx-auto">
+      <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold font-sora">Honors & <span style="color: var(--c1)">Achievements</span></h2>
+      </div>
+
+      <div class="space-y-3">
+        <div class="glass-card p-4 rounded-xl flex items-center gap-4">
+          <div class="text-2xl">🏆</div>
+          <div class="flex-1">
+            <div class="text-sm font-bold font-sora">1st Place — Smart India Hackathon (College Round)</div>
+            <div class="text-xs text-slate-400">Built a real-time disaster-alert routing system for rural connectivity</div>
+          </div>
+          <div class="text-xs font-mono text-slate-500">2025</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl flex items-center gap-4">
+          <div class="text-2xl">⚡</div>
+          <div class="flex-1">
+            <div class="text-sm font-bold font-sora">Codeforces Specialist</div>
+            <div class="text-xs text-slate-400">Rating 1450+, consistent participation in Div 2/3 rounds</div>
+          </div>
+          <div class="text-xs font-mono text-slate-500">2024 — Present</div>
+        </div>
+        <div class="glass-card p-4 rounded-xl flex items-center gap-4">
+          <div class="text-2xl">🎓</div>
+          <div class="flex-1">
+            <div class="text-sm font-bold font-sora">Google Summer of Code — Contributor</div>
+            <div class="text-xs text-slate-400">Open-source contributions to developer tooling projects</div>
+          </div>
+          <div class="text-xs font-mono text-slate-500">2025</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT SECTION -->
+    <section id="contact" class="py-20 reveal max-w-4xl mx-auto">
+      <div class="glass-card rounded-2xl p-8 border border-slate-800">
+        <div class="text-center mb-10">
+          <h2 class="text-3xl font-bold font-sora">Get In <span style="color: var(--c1)">Touch</span></h2>
+          <p class="text-slate-400 text-sm mt-2">Open to internship opportunities, collaborative projects, and systems engineering problems.</p>
+        </div>
+
+        <form id="contact-form" onsubmit="handleFormSubmit(event)" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-xs font-mono text-slate-400 mb-2">YOUR NAME</label>
+              <input type="text" required placeholder="John Doe" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:border-red-500 transition text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-mono text-slate-400 mb-2">YOUR EMAIL</label>
+              <input type="email" required placeholder="john@example.com" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:border-blue-500 transition text-sm">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-2">MESSAGE</label>
+            <textarea rows="4" required placeholder="Write your message here..." class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 focus:outline-none focus:border-red-500 transition text-sm"></textarea>
+          </div>
+          <button type="submit" onclick="playBeep()" class="w-full py-4 rounded-xl text-white font-bold tracking-wide hover:opacity-95 transition shadow-lg text-sm" style="background: var(--grad)">
+            SEND MESSAGE
+          </button>
+        </form>
+        <div id="form-status" class="hidden mt-4 text-center text-sm font-mono text-green-400"></div>
+
+        <div class="mt-8 pt-6 border-t border-slate-800 flex flex-wrap justify-around text-xs font-mono text-slate-400">
+          <a href="mailto:magesh@example.com" class="hover:underline">magesh@example.com</a>
+          <a href="https://github.com/magesh" target="_blank" class="hover:underline">github.com/magesh</a>
+          <a href="https://linkedin.com/in/magesh" target="_blank" class="hover:underline">linkedin.com/in/magesh</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-800 py-8 text-center text-xs font-mono text-slate-500 relative z-10">
+    <p>© 2026 Magesh — CSE Portfolio. Built with Three.js & Tailwind CSS.</p>
+  </footer>
+
+  <!-- INTEGRATED JAVASCRIPT -->
   <script>
     // Initialize Lucide Icons
     lucide.createIcons();
 
-    <!-- Three.js Interactive Particle Background -->
+    // Preloader Animation Sequence
+    const preloader = document.getElementById('preloader');
+    const plFill = document.getElementById('plFill');
+    const plTxt = document.getElementById('plTxt');
+    let plPct = 0;
+    const plInterval = setInterval(() => {
+      plPct += Math.random() * 18 + 6;
+      if (plPct >= 100) { plPct = 100; clearInterval(plInterval); }
+      plFill.style.width = plPct + '%';
+      plTxt.textContent = 'INITIALIZING SYSTEM — ' + Math.floor(plPct) + '%';
+      if (plPct === 100) {
+        setTimeout(() => {
+          preloader.classList.add('hide');
+          document.body.classList.remove('loading');
+          startTypewriter();
+        }, 260);
+      }
+    }, 150);
+
+    // Custom Cursor Movement
+    const cDot = document.getElementById('cDot');
+    const cRing = document.getElementById('cRing');
+    const cursorGlow = document.getElementById('cursorGlow');
+    let mx = innerWidth / 2, my = innerHeight / 2, rx = mx, ry = my;
+
+    window.addEventListener('mousemove', (e) => { 
+      mx = e.clientX; my = e.clientY; 
+      cursorGlow.style.left = mx + 'px';
+      cursorGlow.style.top = my + 'px';
+    });
+
+    function cursorLoop() {
+      rx += (mx - rx) * 0.18; ry += (my - ry) * 0.18;
+      cDot.style.left = mx + 'px'; cDot.style.top = my + 'px';
+      cRing.style.left = rx + 'px'; cRing.style.top = ry + 'px';
+      requestAnimationFrame(cursorLoop);
+    }
+    cursorLoop();
+
+    document.querySelectorAll('a, button, .chip, .tilt-card, input, textarea').forEach(el => {
+      el.addEventListener('mouseenter', () => cRing.classList.add('hover'));
+      el.addEventListener('mouseleave', () => cRing.classList.remove('hover'));
+    });
+
+    // Theme Switcher Logic
+    const themeBtns = document.querySelectorAll('[data-theme-btn]');
+    themeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = btn.getAttribute('data-theme-btn');
+        document.documentElement.setAttribute('data-theme', t);
+        themeBtns.forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        updateCanvasColors();
+      });
+    });
+
+    // Web Audio API SFX Synthesizer
+    let sfxEnabled = false;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function toggleSFX() {
+      sfxEnabled = !sfxEnabled;
+      document.getElementById('sfx-status').innerText = sfxEnabled ? "SFX: ON" : "SFX: OFF";
+      document.getElementById('sfx-toggle').classList.toggle('border-red-500', sfxEnabled);
+      if (sfxEnabled) playBeep(800, 0.05);
+    }
+
+    function playBeep(freq = 600, duration = 0.03) {
+      if (!sfxEnabled) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    // Hero Typewriter Effect
+    function startTypewriter() {
+      const el = document.getElementById('heroLead');
+      const text = "Third-year Computer Science student focused on backend engineering, distributed systems, and competitive programming. I like taking complex system problems apart until the simplest architecture is left.";
+      const caret = document.createElement('span');
+      caret.className = 'typewriter-caret';
+      el.appendChild(caret);
+      let i = 0;
+      (function type() {
+        if (i <= text.length) {
+          el.textContent = text.slice(0, i);
+          el.appendChild(caret);
+          i++;
+          setTimeout(type, 12);
+        } else {
+          setTimeout(() => caret.remove(), 1400);
+        }
+      })();
+    }
+
+    // Three.js Background (Interactive Particles + Geometry Mesh)
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
 
-    // Particles Setup
-    const particleCount = 120;
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-
-    // Red (#ef4444) and Blue (#3b82f6) Palette
-    const colorRed = new THREE.Color(0xef4444);
-    const colorBlue = new THREE.Color(0x3b82f6);
-
-    for (let i = 0; i < particleCount * 3; i += 3) {
-      positions[i] = (Math.random() - 0.5) * 10;
-      positions[i + 1] = (Math.random() - 0.5) * 10;
-      positions[i + 2] = (Math.random() - 0.5) * 10;
-
-      const mixedColor = Math.random() > 0.5 ? colorRed : colorBlue;
-      colors[i] = mixedColor.r;
-      colors[i + 1] = mixedColor.g;
-      colors[i + 2] = mixedColor.b;
+    // Dynamic Colors based on active theme
+    function getThemeColors() {
+      const isGold = document.documentElement.getAttribute('data-theme') === 'blackgold';
+      return {
+        c1: isGold ? new THREE.Color(0xd4af37) : new THREE.Color(0xef4444),
+        c2: isGold ? new THREE.Color(0xffdd7a) : new THREE.Color(0x3b82f6)
+      };
     }
 
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    // Particle Swarm
+    const particleCount = 160;
+    const particleGeo = new THREE.BufferGeometry();
+    const particlePos = new Float32Array(particleCount * 3);
+    const particleColors = new Float32Array(particleCount * 3);
 
-    const material = new THREE.PointsMaterial({
-      size: 0.08,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.8
+    let colors = getThemeColors();
+
+    for (let i = 0; i < particleCount * 3; i += 3) {
+      particlePos[i] = (Math.random() - 0.5) * 14;
+      particlePos[i + 1] = (Math.random() - 0.5) * 14;
+      particlePos[i + 2] = (Math.random() - 0.5) * 14;
+
+      const col = Math.random() > 0.5 ? colors.c1 : colors.c2;
+      particleColors[i] = col.r;
+      particleColors[i + 1] = col.g;
+      particleColors[i + 2] = col.b;
+    }
+
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+    particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+    const particleMat = new THREE.PointsMaterial({
+      size: 0.07, vertexColors: true, transparent: true, opacity: 0.65
     });
 
-    const particles = new THREE.Points(geometry, material);
+    const particles = new THREE.Points(particleGeo, particleMat);
     scene.add(particles);
 
-    camera.position.z = 5;
+    // 3D Wireframe Mesh Shape
+    const meshGeo = new THREE.IcosahedronGeometry(1.8, 1);
+    const meshMat = new THREE.MeshBasicMaterial({ color: colors.c2.getHex(), wireframe: true, transparent: true, opacity: 0.18 });
+    const wireMesh = new THREE.Mesh(meshGeo, meshMat);
+    scene.add(wireMesh);
 
-    // Mouse Interaction
-    let mouseX = 0;
-    let mouseY = 0;
+    camera.position.z = 5.5;
 
-    window.addEventListener('mousemove', (e) => {
-      mouseX = (e.clientX / window.innerWidth) - 0.5;
-      mouseY = (e.clientY / window.innerHeight) - 0.5;
-    });
+    function updateCanvasColors() {
+      const newCols = getThemeColors();
+      meshMat.color.set(newCols.c2);
+      const colsAttr = particleGeo.attributes.color;
+      for (let i = 0; i < particleCount * 3; i += 3) {
+        const c = Math.random() > 0.5 ? newCols.c1 : newCols.c2;
+        colsAttr.array[i] = c.r; colsAttr.array[i+1] = c.g; colsAttr.array[i+2] = c.b;
+      }
+      colsAttr.needsUpdate = true;
+    }
 
-    // Window Resize Handler
+    function animateCanvas() {
+      requestAnimationFrame(animateCanvas);
+      particles.rotation.y += 0.0006;
+      particles.rotation.x += 0.0003;
+      wireMesh.rotation.x += 0.002;
+      wireMesh.rotation.y += 0.003;
+      renderer.render(scene, camera);
+    }
+    animateCanvas();
+
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // Animation Loop
-    function animate() {
-      requestAnimationFrame(animate);
+    // CLI Terminal Execution Engine
+    const termBody = document.getElementById('terminal-body');
+    const termInput = document.getElementById('terminal-input');
 
-      particles.rotation.x += 0.001;
-      particles.rotation.y += 0.001;
+    const commands = {
+      'help': 'Available commands: <span class="text-red-400">about</span>, <span class="text-blue-400">skills</span>, <span class="text-purple-400">projects</span>, <span class="text-yellow-400">stats</span>, <span class="text-green-400">clear</span>',
+      'about': 'Magesh — B.Tech CSE student at SRM IST. Passionate about scalable backend architecture, competitive programming, and systems design.',
+      'skills': 'C++, Python, Java, JavaScript, Data Structures, Algorithms, OS, DBMS, Networks, React, Node.js, Docker, Git.',
+      'projects': '1. CampusConnect (Full-Stack)\n2. MiniDB Engine (C++ LSM Key-Value Store)\n3. Resume Screener (Python NLP)\n4. gitstat (CLI Tool)',
+      'stats': 'LeetCode: 420+ Solved | Codeforces Specialist (1450+) | CGPA: 8.7',
+      'clear': 'CLEAR'
+    };
 
-      // Mouse Parallax Effect
-      particles.rotation.y += mouseX * 0.02;
-      particles.rotation.x += mouseY * 0.02;
+    termInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        playBeep(900, 0.04);
+        const input = termInput.value.trim().toLowerCase();
+        termInput.value = '';
+        if (!input) return;
 
-      renderer.render(scene, camera);
+        const cmdLine = document.createElement('div');
+        cmdLine.className = 'command-line text-slate-300';
+        cmdLine.innerText = input;
+        termBody.appendChild(cmdLine);
+
+        if (input === 'clear') {
+          termBody.innerHTML = '';
+          return;
+        }
+
+        const resLine = document.createElement('div');
+        resLine.className = 'text-slate-400 pl-4 mb-2';
+        resLine.innerHTML = commands[input] || `<span class="text-red-400">Command not recognized: '${input}'. Type 'help' for options.</span>`;
+        termBody.appendChild(resLine);
+        termBody.scrollTop = termBody.scrollHeight;
+      }
+    });
+
+    // Project Filter Buttons Logic
+    function filterProjects(cat) {
+      playBeep();
+      const cards = document.querySelectorAll('.project-card');
+      cards.forEach(card => {
+        if (cat === 'all' || card.dataset.category === cat) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
     }
 
-    animate();
+    // Timeline Tab Switching
+    function switchTab(tab) {
+      playBeep();
+      ['edu', 'exp', 'cert'].forEach(t => {
+        document.getElementById(`content-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`tab-${t}`);
+        btn.style.borderColor = 'transparent';
+        btn.style.color = '#94a3b8';
+      });
+
+      document.getElementById(`content-${tab}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-${tab}`);
+      activeBtn.style.borderColor = 'var(--c1)';
+      activeBtn.style.color = 'var(--c1)';
+    }
+
+    // Contact Form Action Handler
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const status = document.getElementById('form-status');
+      status.classList.remove('hidden');
+      status.innerText = "Message transmitted successfully! (Demo)";
+      e.target.reset();
+    }
+
+    // Initialize 3D Card Tilt Effects
+    VanillaTilt.init(document.querySelectorAll(".tilt-card"), {
+      max: 10, speed: 400, glare: true, "max-glare": 0.12
+    });
+
+    // Intersection Observer for Reveal Elements
+    const rio = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          rio.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => rio.observe(el));
   </script>
 </body>
 </html>
